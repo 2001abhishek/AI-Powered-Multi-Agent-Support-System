@@ -5,6 +5,10 @@ import { logger } from 'hono/logger';
 import { prettyJSON } from 'hono/pretty-json';
 import { swaggerUI } from '@hono/swagger-ui';
 import { OpenAPIHono } from '@hono/zod-openapi';
+import auth from './routes/auth';
+import chat from './routes/chat';
+import agent from './routes/agent';
+import { serve } from '@hono/node-server'
 
 const app = new OpenAPIHono();
 
@@ -25,5 +29,18 @@ app.doc('/doc', {
     },
 });
 
+const routes = app
+    .route('/api/auth', auth)
+    .route('/api/chat', chat)
+    .route('/api/agents', agent);
+
+const port = 3000
+console.log(`Server is running on port ${port}`)
+
+serve({
+    fetch: app.fetch,
+    port
+})
+
 export default app;
-export type AppType = typeof app;
+export type AppType = typeof routes;
