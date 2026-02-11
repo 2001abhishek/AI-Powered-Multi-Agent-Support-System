@@ -4,6 +4,8 @@ import { OpenAPIHono } from "@hono/zod-openapi";
 import { swaggerUI } from "@hono/swagger-ui";
 import { cors } from "hono/cors";
 import authRoutes from "./routes/auth";
+import chatRoutes from "./routes/chat";
+import agentRoutes from "./routes/agents";
 import "dotenv/config";
 
 const app = new OpenAPIHono();
@@ -12,6 +14,17 @@ app.use("/*", cors());
 
 // Routes
 app.route("/api/auth", authRoutes);
+app.route("/api/chat", chatRoutes);
+app.route("/api/agents", agentRoutes);
+
+// Health Check
+app.get("/api/health", (c) => {
+    return c.json({
+        status: "ok",
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+    });
+});
 
 // Swagger Documentation
 app.doc("/doc", {
@@ -36,7 +49,7 @@ app.openAPIRegistry.registerComponent('securitySchemes', 'BearerAuth', {
 app.get("/docs", swaggerUI({ url: "/doc" }));
 
 app.get("/", (c) => {
-    return c.text("Hello Hono!");
+    return c.text("Swades AI Support API v1.0");
 });
 
 const port = 8000;
