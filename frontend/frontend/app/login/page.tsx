@@ -1,0 +1,84 @@
+
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAuth } from "@/lib/auth-context";
+import { Loader2 } from "lucide-react";
+
+export default function LoginPage() {
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const { login, loading } = useAuth();
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        await login(email);
+    };
+
+    return (
+        <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-[#0a0a0a] to-black flex items-center justify-center p-4">
+            <Card className="w-full max-w-md bg-card/60 backdrop-blur-xl border-primary/20 shadow-2xl">
+                <CardHeader className="space-y-1">
+                    <div className="flex justify-center mb-4">
+                        <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold font-serif text-2xl border border-primary/30">
+                            S
+                        </div>
+                    </div>
+                    <CardTitle className="text-2xl font-serif text-center">Welcome back</CardTitle>
+                    <CardDescription className="text-center font-sans">
+                        Enter your email to access your account
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="email">Email</Label>
+                            <Input
+                                id="email"
+                                type="email"
+                                placeholder="m@example.com"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                required
+                                className="bg-background/50 border-input font-sans"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                                <Label htmlFor="password">Password</Label>
+                                <Link href="#" className="text-xs text-primary hover:underline">
+                                    Forgot password?
+                                </Link>
+                            </div>
+                            <Input
+                                id="password"
+                                type="password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                required
+                                className="bg-background/50 border-input font-sans"
+                            />
+                        </div>
+                        <Button className="w-full font-sans" type="submit" disabled={loading}>
+                            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Sign In
+                        </Button>
+                    </form>
+                </CardContent>
+                <CardFooter className="flex justify-center">
+                    <p className="text-xs text-muted-foreground">
+                        Don&apos;t have an account?{" "}
+                        <Link href="/signup" className="text-primary hover:underline">
+                            Sign up
+                        </Link>
+                    </p>
+                </CardFooter>
+            </Card>
+        </div>
+    );
+}
