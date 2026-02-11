@@ -165,4 +165,25 @@ app.openapi(loginRoute, async (c) => {
     }, 200);
 });
 
+const logoutRoute = createRoute({
+    method: "post",
+    path: "/logout",
+    responses: {
+        200: {
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        message: z.string(),
+                    }),
+                },
+            },
+            description: "Logout successful",
+        },
+    },
+});
+
+app.openapi(logoutRoute, async (c) => {
+    return c.json({ message: "Logout successful" }, 200);
+});
+
 export default app;

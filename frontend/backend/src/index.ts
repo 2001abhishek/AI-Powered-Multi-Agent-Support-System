@@ -20,7 +20,18 @@ app.doc("/doc", {
         version: "1.0.0",
         title: "Swades AI Support API",
     },
-});
+    security: [
+        {
+            BearerAuth: [],
+        },
+    ],
+} as any);
+
+app.openAPIRegistry.registerComponent('securitySchemes', 'BearerAuth', {
+    type: 'http',
+    scheme: 'bearer',
+    bearerFormat: 'JWT',
+})
 
 app.get("/docs", swaggerUI({ url: "/doc" }));
 
@@ -28,7 +39,7 @@ app.get("/", (c) => {
     return c.text("Hello Hono!");
 });
 
-const port = 3000;
+const port = 3001;
 console.log(`Server is running on port ${port}`);
 
 serve({
