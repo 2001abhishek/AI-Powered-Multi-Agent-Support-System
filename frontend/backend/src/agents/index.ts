@@ -1,5 +1,5 @@
 
-import { generateText, stepCountIs } from "ai";
+import { generateText, streamText, stepCountIs } from "ai";
 import { model } from "./model";
 import {
     queryConversationHistory,
@@ -10,7 +10,7 @@ import {
 } from "./tools";
 
 // ── Agent Definitions ────────────────────────────────────
-interface AgentResult {
+export interface AgentResult {
     role: string;
     agentName: string;
     content: string;
@@ -50,8 +50,27 @@ You handle payment issues, refunds, invoices, and subscription queries.
 Use the getInvoiceDetails tool to look up invoices and checkRefundStatus to check refund status.
 Always provide clear, structured information about billing. Be helpful and proactive.`;
 
+// ── Agent Config Map ─────────────────────────────────────
+const AGENT_CONFIG = {
+    support: {
+        system: SUPPORT_SYSTEM_PROMPT,
+        tools: { queryConversationHistory },
+        name: "Support Agent",
+    },
+    order: {
+        system: ORDER_SYSTEM_PROMPT,
+        tools: { fetchOrderDetails, checkDeliveryStatus },
+        name: "Order Agent",
+    },
+    billing: {
+        system: BILLING_SYSTEM_PROMPT,
+        tools: { getInvoiceDetails, checkRefundStatus },
+        name: "Billing Agent",
+    },
+};
+
 // ── Router Agent ─────────────────────────────────────────
-async function routeQuery(userMessage: string): Promise<string> {
+export async function routeQuery(userMessage: string): Promise<string> {
     try {
         const result = await generateText({
             model,
@@ -66,7 +85,6 @@ async function routeQuery(userMessage: string): Promise<string> {
             return delegateMatch[1].toLowerCase();
         }
 
-        // Fallback: keyword-based routing
         return fallbackRoute(userMessage);
     } catch (error) {
         console.error("Router agent error, using fallback:", error);
@@ -85,32 +103,19 @@ function fallbackRoute(message: string): string {
     return "support";
 }
 
-// ── Sub-Agent Execution ──────────────────────────────────
-async function runSubAgent(
+// ── Get Agent Info ───────────────────────────────────────
+export function getAgentConfig(agentType: string) {
+    return AGENT_CONFIG[agentType as keyof typeof AGENT_CONFIG] || AGENT_CONFIG.support;
+}
+
+// ── Non-Streaming Sub-Agent (kept for fallback) ──────────
+export async function runSubAgent(
     agentType: string,
     userMessage: string,
     userId: string,
     conversationHistory: { role: "user" | "assistant"; content: string }[]
 ): Promise<AgentResult> {
-    const agentConfig = {
-        support: {
-            system: SUPPORT_SYSTEM_PROMPT,
-            tools: { queryConversationHistory },
-            name: "Support Agent",
-        },
-        order: {
-            system: ORDER_SYSTEM_PROMPT,
-            tools: { fetchOrderDetails, checkDeliveryStatus },
-            name: "Order Agent",
-        },
-        billing: {
-            system: BILLING_SYSTEM_PROMPT,
-            tools: { getInvoiceDetails, checkRefundStatus },
-            name: "Billing Agent",
-        },
-    };
-
-    const config = agentConfig[agentType as keyof typeof agentConfig] || agentConfig.support;
+    const config = getAgentConfig(agentType);
 
     try {
         const result = await generateText({
@@ -124,39 +129,7 @@ async function runSubAgent(
             stopWhen: stepCountIs(5),
         });
 
-        // Extract tool result data for rich UI rendering
-        let richData = null;
-        for (const step of result.steps) {
-            for (const toolResult of step.toolResults) {
-                const resultValue = (toolResult as any).result as any;
-                if (resultValue?.found && resultValue?.order) {
-                    richData = {
-                        type: "order",
-                        content: {
-                            id: resultValue.order.id,
-                            status: resultValue.order.status,
-                            items: Array.isArray(resultValue.order.items)
-                                ? resultValue.order.items.map((i: any) => i.name || i)
-                                : [],
-                            total: resultValue.order.total,
-                            eta: resultValue.order.eta,
-                        },
-                    };
-                }
-                if (resultValue?.found && resultValue?.invoice) {
-                    richData = {
-                        type: "invoice",
-                        content: {
-                            id: resultValue.invoice.id,
-                            date: resultValue.invoice.date,
-                            amount: resultValue.invoice.amount,
-                            status: resultValue.invoice.status,
-                            items: resultValue.invoice.items,
-                        },
-                    };
-                }
-            }
-        }
+        const richData = extractRichData(result.steps);
 
         return {
             role: agentType,
@@ -175,13 +148,80 @@ async function runSubAgent(
     }
 }
 
-// ── Main Orchestrator ────────────────────────────────────
+// ── Streaming Sub-Agent ──────────────────────────────────
+export function streamSubAgent(
+    agentType: string,
+    userMessage: string,
+    conversationHistory: { role: "user" | "assistant"; content: string }[]
+) {
+    const config = getAgentConfig(agentType);
+
+    const result = streamText({
+        model,
+        system: config.system,
+        messages: [
+            ...conversationHistory,
+            { role: "user" as const, content: userMessage },
+        ],
+        tools: config.tools,
+        stopWhen: stepCountIs(5),
+        onError: (error) => {
+            console.error(`${config.name} stream error:`, error);
+        },
+    });
+
+    return {
+        textStream: result.textStream,
+        result, // Full stream result for awaiting completion
+        agentName: config.name,
+        role: agentType,
+    };
+}
+
+// ── Extract Rich Data from Tool Steps ────────────────────
+export function extractRichData(steps: any[]): any {
+    let richData = null;
+    for (const step of steps) {
+        if (!step.toolResults) continue;
+        for (const toolResult of step.toolResults) {
+            const resultValue = (toolResult as any).result as any;
+            if (resultValue?.found && resultValue?.order) {
+                richData = {
+                    type: "order",
+                    content: {
+                        id: resultValue.order.id,
+                        status: resultValue.order.status,
+                        items: Array.isArray(resultValue.order.items)
+                            ? resultValue.order.items.map((i: any) => i.name || i)
+                            : [],
+                        total: resultValue.order.total,
+                        eta: resultValue.order.eta,
+                    },
+                };
+            }
+            if (resultValue?.found && resultValue?.invoice) {
+                richData = {
+                    type: "invoice",
+                    content: {
+                        id: resultValue.invoice.id,
+                        date: resultValue.invoice.date,
+                        amount: resultValue.invoice.amount,
+                        status: resultValue.invoice.status,
+                        items: resultValue.invoice.items,
+                    },
+                };
+            }
+        }
+    }
+    return richData;
+}
+
+// ── Main Orchestrator (Non-Streaming, kept for backward compat) ──
 export async function processMessage(
     userMessage: string,
     userId: string,
     conversationHistory: { role: "user" | "assistant"; content: string }[] = []
 ): Promise<{ routerResult: AgentResult; agentResult: AgentResult }> {
-    // Step 1: Router classifies intent
     const targetAgent = await routeQuery(userMessage);
 
     const routerResult: AgentResult = {
@@ -190,7 +230,6 @@ export async function processMessage(
         content: `I'll connect you with our ${targetAgent.charAt(0).toUpperCase() + targetAgent.slice(1)} Agent to assist you.`,
     };
 
-    // Step 2: Run the appropriate sub-agent with tools
     const agentResult = await runSubAgent(targetAgent, userMessage, userId, conversationHistory);
 
     return { routerResult, agentResult };

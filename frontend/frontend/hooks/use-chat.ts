@@ -1,10 +1,18 @@
 
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { Message, AgentType } from "@/lib/chat-types";
-import { sendMessageAPI, listConversationsAPI, getConversationAPI, deleteConversationAPI } from "@/utils/apis/chat";
+import { sendMessageStreamAPI, listConversationsAPI, getConversationAPI, deleteConversationAPI } from "@/utils/apis/chat";
 import type { ConversationResponse } from "@/utils/apis/chat";
+
+// Rotating thinking phrases for visual flair
+const THINKING_PHRASES = [
+    "Router is analyzing your request...",
+    "Identifying the best agent...",
+    "Processing your query...",
+    "Connecting to specialized agent...",
+];
 
 export function useChat() {
     const [messages, setMessages] = useState<Message[]>([
@@ -21,6 +29,7 @@ export function useChat() {
     const [thinkingText, setThinkingText] = useState<string | null>(null);
     const [conversationId, setConversationId] = useState<string | null>(null);
     const [conversations, setConversations] = useState<ConversationResponse[]>([]);
+    const streamingMsgId = useRef<string | null>(null);
 
     // Load all conversations for sidebar
     const loadConversations = useCallback(async () => {
@@ -81,7 +90,7 @@ export function useChat() {
         }
     }, [conversationId, newChat]);
 
-    // Send a message to the backend
+    // Send message with streaming
     const sendMessage = useCallback(
         async (content: string) => {
             // Add user message immediately
@@ -95,36 +104,112 @@ export function useChat() {
             setMessages((prev) => [...prev, userMsg]);
 
             setIsTyping(true);
-            setThinkingText("Router is analyzing your request...");
+            setThinkingText(THINKING_PHRASES[Math.floor(Math.random() * THINKING_PHRASES.length)]);
 
             try {
-                const response = await sendMessageAPI({
-                    content,
-                    conversationId: conversationId || undefined,
-                });
+                await sendMessageStreamAPI(
+                    {
+                        content,
+                        conversationId: conversationId || undefined,
+                    },
+                    {
+                        onConversation: (data) => {
+                            if (!conversationId) {
+                                setConversationId(data.conversationId);
+                            }
+                        },
 
-                // Update conversation ID if new
-                if (!conversationId) {
-                    setConversationId(response.conversationId);
-                }
+                        onRouter: (data) => {
+                            // Add the router message
+                            setMessages((prev) => [
+                                ...prev,
+                                {
+                                    id: data.id || `router-${Date.now()}`,
+                                    role: "router" as AgentType,
+                                    content: data.content,
+                                    timestamp: new Date(data.createdAt),
+                                    agentName: data.agentName || "Router",
+                                    status: "done",
+                                },
+                            ]);
+                        },
 
-                // Add agent messages to the UI
-                const agentMessages: Message[] = response.agentMessages.map((m) => ({
-                    id: m.id,
-                    role: m.role as AgentType,
-                    content: m.content,
-                    timestamp: new Date(m.createdAt),
-                    agentName: m.agentName || undefined,
-                    data: m.data || undefined,
-                    status: "done" as const,
-                }));
+                        onAgentStart: (data) => {
+                            // Create a placeholder streaming message
+                            const msgId = `streaming-${Date.now()}`;
+                            streamingMsgId.current = msgId;
+                            setThinkingText(`${data.agentName} is typing...`);
 
-                setMessages((prev) => [...prev, ...agentMessages]);
+                            setMessages((prev) => [
+                                ...prev,
+                                {
+                                    id: msgId,
+                                    role: data.role as AgentType,
+                                    content: "",
+                                    timestamp: new Date(),
+                                    agentName: data.agentName,
+                                    status: "typing",
+                                },
+                            ]);
+                        },
 
-                // Refresh conversations list
-                loadConversations();
+                        onTextDelta: (data) => {
+                            setThinkingText(null); // Clear thinking text once tokens arrive
+                            // Append the delta to the streaming message
+                            setMessages((prev) =>
+                                prev.map((msg) =>
+                                    msg.id === streamingMsgId.current
+                                        ? { ...msg, content: msg.content + data.delta, status: "typing" as const }
+                                        : msg
+                                )
+                            );
+                        },
+
+                        onRichData: (data) => {
+                            // Attach rich data to the streaming message
+                            setMessages((prev) =>
+                                prev.map((msg) =>
+                                    msg.id === streamingMsgId.current
+                                        ? { ...msg, data }
+                                        : msg
+                                )
+                            );
+                        },
+
+                        onDone: (data) => {
+                            // Finalize the streaming message
+                            setMessages((prev) =>
+                                prev.map((msg) =>
+                                    msg.id === streamingMsgId.current
+                                        ? { ...msg, id: data.messageId, status: "done" as const, timestamp: new Date(data.createdAt) }
+                                        : msg
+                                )
+                            );
+                            streamingMsgId.current = null;
+                            setIsTyping(false);
+                            setThinkingText(null);
+                            loadConversations();
+                        },
+
+                        onError: (errorMsg) => {
+                            setMessages((prev) => [
+                                ...prev.filter((m) => m.id !== streamingMsgId.current),
+                                {
+                                    id: `error-${Date.now()}`,
+                                    role: "router" as AgentType,
+                                    content: `Sorry, something went wrong: ${errorMsg}`,
+                                    timestamp: new Date(),
+                                    agentName: "System",
+                                    status: "done",
+                                },
+                            ]);
+                            streamingMsgId.current = null;
+                            setIsTyping(false);
+                            setThinkingText(null);
+                        },
+                    }
+                );
             } catch (err: any) {
-                // Show error as a system message
                 setMessages((prev) => [
                     ...prev,
                     {

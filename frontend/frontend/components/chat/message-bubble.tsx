@@ -45,7 +45,12 @@ export function MessageBubble({ message }: MessageBubbleProps) {
                 "rounded-lg p-3 max-w-[80%] shadow-sm",
                 agentStyles[message.role] || agentStyles.router
             )}>
-                <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+                <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                    {message.content}
+                    {message.status === 'typing' && (
+                        <span className="inline-block w-1.5 h-4 ml-0.5 bg-current animate-pulse rounded-sm align-text-bottom" />
+                    )}
+                </p>
 
                 {message.data?.type === 'order' && <OrderCard data={message.data.content} />}
                 {message.data?.type === 'invoice' && <InvoiceCard data={message.data.content} />}
