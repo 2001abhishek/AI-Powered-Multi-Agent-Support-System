@@ -18,11 +18,11 @@ const agentIcons = {
 };
 
 const agentStyles = {
-    user: "bg-primary text-primary-foreground self-end ml-12",
-    router: "bg-muted text-muted-foreground self-start mr-12 border-l-4 border-l-muted-foreground/50",
-    support: "bg-blue-950/30 text-blue-100 self-start mr-12 border-l-4 border-l-blue-500",
-    order: "bg-orange-950/30 text-orange-100 self-start mr-12 border-l-4 border-l-orange-500",
-    billing: "bg-green-950/30 text-green-100 self-start mr-12 border-l-4 border-l-green-500",
+    user: "bg-primary text-primary-foreground self-end ml-12 shadow-primary/20",
+    router: "bg-muted text-foreground self-start mr-12 border-l-4 border-l-muted-foreground/40",
+    support: "bg-blue-100/50 dark:bg-blue-950/30 text-blue-900 dark:text-blue-100 self-start mr-12 border-l-4 border-l-blue-500",
+    order: "bg-orange-100/50 dark:bg-orange-950/30 text-orange-900 dark:text-orange-100 self-start mr-12 border-l-4 border-l-orange-500",
+    billing: "bg-green-100/50 dark:bg-green-950/30 text-green-900 dark:text-green-100 self-start mr-12 border-l-4 border-l-green-500",
 };
 
 export function MessageBubble({ message }: MessageBubbleProps) {
