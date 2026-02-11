@@ -6,11 +6,17 @@ import { cors } from "hono/cors";
 import authRoutes from "./routes/auth";
 import chatRoutes from "./routes/chat";
 import agentRoutes from "./routes/agents";
+import { apiRateLimit, authRateLimit, chatRateLimit } from "./middleware/rate-limit";
 import "dotenv/config";
 
 const app = new OpenAPIHono();
 
 app.use("/*", cors());
+
+// Rate limiting
+app.use("/api/*", apiRateLimit);       // 100 req/min for all API routes
+app.use("/api/auth/*", authRateLimit);  // 10 req/min for auth (stricter)
+app.use("/api/chat/*", chatRateLimit);  // 20 req/min for chat/AI
 
 // Routes
 app.route("/api/auth", authRoutes);
