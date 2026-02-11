@@ -4,10 +4,11 @@ import { chatService } from "../services/chat.service";
 
 export class ChatController {
     async getConversations(c: Context) {
-        // @ts-ignore
-        const user = c.get('user');
-        const userId = user?.id;
-
+        const payload = c.get('jwtPayload') as any;
+        console.log('JWT Payload:', payload);
+        const userId = payload?.id;
+        console.log('Extracted userId:', userId);
+        
         if (!userId) return c.json({ error: "Unauthorized" }, 401);
 
         const convos = await chatService.getConversations(userId);
