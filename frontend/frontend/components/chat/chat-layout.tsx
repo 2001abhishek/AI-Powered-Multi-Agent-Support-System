@@ -4,20 +4,41 @@
 import { MessageList } from "./message-list";
 import { ChatInput } from "./chat-input";
 import { Sidebar } from "./sidebar";
-import { useMockChat } from "@/hooks/use-mock-chat";
+import { useChat } from "@/hooks/use-chat";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export function ChatLayout() {
-    const { messages, isTyping, thinkingText, sendMessage } = useMockChat();
+    const {
+        messages,
+        isTyping,
+        thinkingText,
+        conversations,
+        sendMessage,
+        loadConversations,
+        loadConversation,
+        newChat,
+        deleteConversation,
+    } = useChat();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+    // Load conversations on mount
+    useEffect(() => {
+        loadConversations();
+    }, [loadConversations]);
 
     return (
         <div className="flex h-[calc(100vh-2rem)] md:h-[calc(100vh-4rem)] max-w-6xl mx-auto border rounded-xl shadow-2xl overflow-hidden bg-card/50 backdrop-blur-xl">
             {/* Sidebar for Desktop */}
-            <Sidebar className="hidden md:flex" />
+            <Sidebar
+                className="hidden md:flex"
+                conversations={conversations}
+                onSelectConversation={loadConversation}
+                onNewChat={newChat}
+                onDeleteConversation={deleteConversation}
+            />
 
             <div className="flex-1 flex flex-col min-w-0">
                 {/* Header */}
@@ -29,7 +50,19 @@ export function ChatLayout() {
                             </Button>
                         </SheetTrigger>
                         <SheetContent side="left" className="p-0 w-72">
-                            <Sidebar className="w-full h-full border-none" />
+                            <Sidebar
+                                className="w-full h-full border-none"
+                                conversations={conversations}
+                                onSelectConversation={(id) => {
+                                    loadConversation(id);
+                                    setIsSidebarOpen(false);
+                                }}
+                                onNewChat={() => {
+                                    newChat();
+                                    setIsSidebarOpen(false);
+                                }}
+                                onDeleteConversation={deleteConversation}
+                            />
                         </SheetContent>
                     </Sheet>
 
