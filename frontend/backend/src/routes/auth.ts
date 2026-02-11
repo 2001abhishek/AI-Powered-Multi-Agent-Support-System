@@ -1,74 +1,13 @@
-
-import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
+import { OpenAPIHono } from "@hono/zod-openapi";
 import { users } from "../db/schema";
 import { db } from "../db";
 import { eq } from "drizzle-orm";
 import { hashPassword, comparePassword, generateToken } from "../utils/auth";
+import { signupRoute, loginRoute, logoutRoute } from "../api/auth";
 
 const app = new OpenAPIHono();
 
-// Schemas
-const UserSchema = z.object({
-    id: z.string(),
-    name: z.string(),
-    email: z.string().email(),
-    createdAt: z.string(),
-    updatedAt: z.string(),
-});
-
-const SignupSchema = z.object({
-    name: z.string().min(2),
-    email: z.string().email(),
-    password: z.string().min(6),
-});
-
-const LoginSchema = z.object({
-    email: z.string().email(),
-    password: z.string(),
-});
-
-const AuthResponseSchema = z.object({
-    token: z.string(),
-    user: UserSchema,
-});
-
-const ErrorSchema = z.object({
-    message: z.string(),
-});
-
-// Routes
-const signupRoute = createRoute({
-    method: "post",
-    path: "/signup",
-    request: {
-        body: {
-            content: {
-                "application/json": {
-                    schema: SignupSchema,
-                },
-            },
-        },
-    },
-    responses: {
-        201: {
-            content: {
-                "application/json": {
-                    schema: AuthResponseSchema,
-                },
-            },
-            description: "User created successfully",
-        },
-        400: {
-            content: {
-                "application/json": {
-                    schema: ErrorSchema,
-                },
-            },
-            description: "Invalid input or user already exists",
-        },
-    },
-});
-
+// ── Signup Handler ───────────────────────────────────────
 app.openapi(signupRoute, async (c) => {
     const { name, email, password } = c.req.valid("json");
 
@@ -106,38 +45,7 @@ app.openapi(signupRoute, async (c) => {
     }, 201);
 });
 
-const loginRoute = createRoute({
-    method: "post",
-    path: "/login",
-    request: {
-        body: {
-            content: {
-                "application/json": {
-                    schema: LoginSchema,
-                },
-            },
-        },
-    },
-    responses: {
-        200: {
-            content: {
-                "application/json": {
-                    schema: AuthResponseSchema,
-                },
-            },
-            description: "Login successful",
-        },
-        401: {
-            content: {
-                "application/json": {
-                    schema: ErrorSchema,
-                },
-            },
-            description: "Invalid email or password",
-        },
-    },
-});
-
+// ── Login Handler ────────────────────────────────────────
 app.openapi(loginRoute, async (c) => {
     const { email, password } = c.req.valid("json");
 
@@ -165,23 +73,7 @@ app.openapi(loginRoute, async (c) => {
     }, 200);
 });
 
-const logoutRoute = createRoute({
-    method: "post",
-    path: "/logout",
-    responses: {
-        200: {
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        message: z.string(),
-                    }),
-                },
-            },
-            description: "Logout successful",
-        },
-    },
-});
-
+// ── Logout Handler ───────────────────────────────────────
 app.openapi(logoutRoute, async (c) => {
     return c.json({ message: "Logout successful" }, 200);
 });
