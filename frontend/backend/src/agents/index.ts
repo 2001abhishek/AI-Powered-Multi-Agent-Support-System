@@ -226,29 +226,67 @@ export function extractRichData(steps: any[]): any {
         if (!step.toolResults) continue;
         for (const toolResult of step.toolResults) {
             const resultValue = (toolResult as any).result as any;
-            if (resultValue?.found && resultValue?.order) {
+            if (!resultValue) continue;
+
+            // Order data — from fetchOrderDetails (found), createOrder/cancelOrder (success), or lookupByTrackingNumber
+            const order = resultValue.order;
+            if (order && (resultValue.found || resultValue.success)) {
                 richData = {
                     type: "order",
                     content: {
-                        id: resultValue.order.id,
-                        status: resultValue.order.status,
-                        items: Array.isArray(resultValue.order.items)
-                            ? resultValue.order.items.map((i: any) => i.name || i)
+                        id: order.id || order.orderNumber,
+                        status: order.status,
+                        items: Array.isArray(order.items)
+                            ? order.items.map((i: any) => typeof i === "string" ? i : `${i.quantity || 1}x ${i.name}`)
                             : [],
-                        total: resultValue.order.total,
-                        eta: resultValue.order.eta,
+                        total: order.total,
+                        eta: order.eta || "N/A",
                     },
                 };
             }
-            if (resultValue?.found && resultValue?.invoice) {
+
+            // Delivery data — from checkDeliveryStatus
+            const delivery = resultValue.delivery;
+            if (delivery && resultValue.found) {
+                richData = {
+                    type: "order",
+                    content: {
+                        id: delivery.orderNumber,
+                        status: delivery.status,
+                        items: [],
+                        total: "",
+                        eta: delivery.eta || "N/A",
+                        trackingNumber: delivery.trackingNumber,
+                    },
+                };
+            }
+
+            // Invoice data — from getInvoiceDetails
+            const invoice = resultValue.invoice;
+            if (invoice && resultValue.found) {
                 richData = {
                     type: "invoice",
                     content: {
-                        id: resultValue.invoice.id,
-                        date: resultValue.invoice.date,
-                        amount: resultValue.invoice.amount,
-                        status: resultValue.invoice.status,
-                        items: resultValue.invoice.items,
+                        id: invoice.id,
+                        date: invoice.date,
+                        amount: invoice.amount,
+                        status: invoice.status,
+                        items: invoice.items,
+                    },
+                };
+            }
+
+            // Refund data — from checkRefundStatus
+            const refund = resultValue.refund;
+            if (refund && resultValue.found) {
+                richData = {
+                    type: "invoice",
+                    content: {
+                        id: refund.invoiceNumber,
+                        date: refund.originalDate,
+                        amount: refund.amount,
+                        status: refund.status,
+                        items: [],
                     },
                 };
             }
