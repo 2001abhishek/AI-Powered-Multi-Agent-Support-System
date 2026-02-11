@@ -10,6 +10,7 @@ import {
     deleteConversationRoute,
 } from "../api/chat";
 import { authMiddleware } from "../middleware/auth";
+import { processMessage } from "../agents";
 
 const app = new OpenAPIHono();
 
@@ -49,19 +50,43 @@ app.openapi(sendMessageRoute, async (c) => {
         .set({ updatedAt: new Date() })
         .where(eq(conversations.id, convId));
 
-    // TODO: This is where the multi-agent system will process the message
-    // For now, return a mock agent response
-    const mockAgentRole = determineMockAgent(content);
-    const mockResponse = getMockResponse(mockAgentRole, content);
+    // Build conversation history for context
+    const prevMessages = await db
+        .select()
+        .from(messages)
+        .where(eq(messages.conversationId, convId))
+        .orderBy(messages.createdAt);
 
+    const conversationHistory = prevMessages
+        .filter((m) => m.role === "user" || m.role !== "user")
+        .map((m) => ({
+            role: (m.role === "user" ? "user" : "assistant") as "user" | "assistant",
+            content: m.content,
+        }));
+
+    // Process through multi-agent system
+    const { routerResult, agentResult } = await processMessage(content, userId, conversationHistory);
+
+    // Save router message
+    const routerMsg = await db
+        .insert(messages)
+        .values({
+            conversationId: convId,
+            role: routerResult.role,
+            content: routerResult.content,
+            agentName: routerResult.agentName,
+        })
+        .returning();
+
+    // Save agent response
     const agentMsg = await db
         .insert(messages)
         .values({
             conversationId: convId,
-            role: mockAgentRole.role,
-            content: mockResponse.text,
-            agentName: mockAgentRole.name,
-            data: mockResponse.data || null,
+            role: agentResult.role,
+            content: agentResult.content,
+            agentName: agentResult.agentName,
+            data: agentResult.data || null,
         })
         .returning();
 
@@ -72,6 +97,10 @@ app.openapi(sendMessageRoute, async (c) => {
                 createdAt: userMsg[0].createdAt.toISOString(),
             },
             agentMessages: [
+                {
+                    ...routerMsg[0],
+                    createdAt: routerMsg[0].createdAt.toISOString(),
+                },
                 {
                     ...agentMsg[0],
                     createdAt: agentMsg[0].createdAt.toISOString(),
@@ -156,57 +185,5 @@ app.openapi(deleteConversationRoute, async (c) => {
 
     return c.json({ message: "Conversation deleted successfully" }, 200);
 });
-
-// ── Mock Agent Logic (placeholder for AI SDK) ────────────
-function determineMockAgent(content: string): { role: string; name: string } {
-    const query = content.toLowerCase();
-    if (query.includes("order") || query.includes("tracking") || query.includes("delivery")) {
-        return { role: "order", name: "Order Agent" };
-    }
-    if (query.includes("bill") || query.includes("refund") || query.includes("charge") || query.includes("invoice")) {
-        return { role: "billing", name: "Billing Agent" };
-    }
-    return { role: "support", name: "Support Agent" };
-}
-
-function getMockResponse(agent: { role: string; name: string }, content: string): { text: string; data?: any } {
-    switch (agent.role) {
-        case "order":
-            return {
-                text: "I've located your order. Here are the details:",
-                data: {
-                    type: "order",
-                    content: {
-                        id: "#ORDER-9283",
-                        status: "In Transit",
-                        items: ["Wireless Headphones", "Protective Case"],
-                        total: "$249.00",
-                        eta: "Tomorrow by 8 PM",
-                    },
-                },
-            };
-        case "billing":
-            return {
-                text: "Here is your latest invoice information:",
-                data: {
-                    type: "invoice",
-                    content: {
-                        id: "INV-2024-001",
-                        date: "Feb 10, 2024",
-                        amount: "$249.00",
-                        status: "Paid",
-                        items: [
-                            { desc: "Premium Plan (Monthly)", amount: "$99.00" },
-                            { desc: "AI Credits Pack", amount: "$150.00" },
-                        ],
-                    },
-                },
-            };
-        default:
-            return {
-                text: "I'd be happy to help you with that. Could you please provide more details about your issue so I can assist you better?",
-            };
-    }
-}
 
 export default app;
