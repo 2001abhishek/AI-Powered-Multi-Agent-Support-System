@@ -4,6 +4,7 @@ import { model } from "./model";
 import {
     queryConversationHistory,
     fetchOrderDetails,
+    lookupByTrackingNumber,
     checkDeliveryStatus,
     cancelOrder,
     createOrder,
@@ -59,6 +60,7 @@ const ORDER_SYSTEM_PROMPT = `You are the Order Agent for Swades AI Customer Supp
 
 YOUR CAPABILITIES (use ONLY these tools):
 - fetchOrderDetails: Look up an existing order by its order number
+- lookupByTrackingNumber: Look up an order by its tracking number (e.g. TRK-8827364)
 - checkDeliveryStatus: Check delivery/tracking status of an order
 - cancelOrder: Cancel an order (only works for 'processing' orders)
 - createOrder: Create a new order for the user with specified items
@@ -98,7 +100,7 @@ const AGENT_CONFIG = {
     },
     order: {
         system: ORDER_SYSTEM_PROMPT,
-        tools: { fetchOrderDetails, checkDeliveryStatus, cancelOrder, createOrder },
+        tools: { fetchOrderDetails, lookupByTrackingNumber, checkDeliveryStatus, cancelOrder, createOrder },
         name: "Order Agent",
     },
     billing: {

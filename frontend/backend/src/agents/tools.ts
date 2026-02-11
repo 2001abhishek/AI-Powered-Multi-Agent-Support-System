@@ -80,6 +80,37 @@ export const fetchOrderDetails = tool({
     },
 });
 
+export const lookupByTrackingNumber = tool({
+    description: "Look up an order by its tracking number (e.g. TRK-8827364). Use this when the user provides a tracking ID instead of an order number.",
+    inputSchema: z.object({
+        trackingNumber: z.string().describe("The tracking number to search for, e.g., TRK-8827364"),
+    }),
+    execute: async ({ trackingNumber }) => {
+        const order = await db
+            .select()
+            .from(orders)
+            .where(eq(orders.trackingNumber, trackingNumber));
+
+        if (order.length === 0) {
+            return { found: false, message: `No order found with tracking number ${trackingNumber}.` };
+        }
+
+        const o = order[0];
+        return {
+            found: true,
+            order: {
+                id: o.orderNumber,
+                status: o.status,
+                items: o.items,
+                total: o.total,
+                trackingNumber: o.trackingNumber,
+                eta: o.eta,
+                createdAt: o.createdAt.toISOString(),
+            },
+        };
+    },
+});
+
 export const checkDeliveryStatus = tool({
     description: "Check the delivery status and estimated time of arrival for an order",
     inputSchema: z.object({
