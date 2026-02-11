@@ -6,7 +6,9 @@
         "build": "tsc",
         "start": "node dist/index.js",
         "db:generate": "drizzle-kit generate",
-        "db:migrate": "drizzle-kit migrate"
+        "db:migrate": "drizzle-kit migrate",
+        "db:push": "drizzle-kit push",
+        "db:studio": "drizzle-kit studio"
     },
     "dependencies": {
         "@ai-sdk/openai": "^3.0.26",

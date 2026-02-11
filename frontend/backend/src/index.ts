@@ -35,7 +35,73 @@ app.get('/doc', (c) => {
             title: 'Swades AI API',
             version: '1.0.0',
         },
+        components: {
+            securitySchemes: {
+                BearerAuth: {
+                    type: 'http',
+                    scheme: 'bearer',
+                    bearerFormat: 'JWT',
+                },
+            },
+        },
+        security: [
+            {
+                BearerAuth: [],
+            },
+        ],
         paths: {
+            '/api/auth/login': {
+                post: {
+                    summary: 'User Login',
+                    requestBody: {
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    type: 'object',
+                                    properties: {
+                                        email: { type: 'string', example: 'rayabhishek9438@gmail.com' },
+                                        password: { type: 'string', example: 'Bapun@7381' }
+                                    },
+                                    required: ['email']
+                                }
+                            }
+                        }
+                    },
+                    responses: {
+                        '200': {
+                            description: 'Login successful',
+                        },
+                        '400': {
+                            description: 'Invalid input'
+                        }
+                    },
+                },
+            },
+            '/api/auth/signup': {
+                post: {
+                    summary: 'User Signup',
+                    requestBody: {
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    type: 'object',
+                                    properties: {
+                                        name: { type: 'string', example: 'Abhishek Ray' },
+                                        email: { type: 'string', example: 'rayabhishek9438@gmail.com' },
+                                        password: { type: 'string', example: 'Bapun@7381' }
+                                    },
+                                    required: ['email', 'name']
+                                }
+                            }
+                        }
+                    },
+                    responses: {
+                        '200': {
+                            description: 'Signup successful',
+                        },
+                    },
+                },
+            },
             '/api/agents': {
                 get: {
                     summary: 'List available agents',

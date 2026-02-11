@@ -4,7 +4,10 @@ import { chatService } from "../services/chat.service";
 
 export class ChatController {
     async getConversations(c: Context) {
-        const userId = c.req.header("x-user-id");
+        // @ts-ignore
+        const user = c.get('user');
+        const userId = user?.id;
+
         if (!userId) return c.json({ error: "Unauthorized" }, 401);
 
         const convos = await chatService.getConversations(userId);
