@@ -13,11 +13,11 @@ import { Loader2 } from "lucide-react";
 export default function LoginPage() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
-    const { login, loading } = useAuth();
+    const { login, loading, error, clearError } = useAuth();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        await login(email);
+        await login(email, password);
     };
 
     return (
@@ -35,7 +35,12 @@ export default function LoginPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <form onSubmit={handleSubmit} className="space-y-4">
+                    {error && (
+                        <div className="mb-4 p-3 rounded-md bg-destructive/10 border border-destructive/20 text-destructive text-sm font-sans">
+                            {error}
+                        </div>
+                    )}
+                    <form onSubmit={handleSubmit} className="space-y-4" onChange={clearError}>
                         <div className="space-y-2">
                             <Label htmlFor="email">Email</Label>
                             <Input

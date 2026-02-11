@@ -6,6 +6,8 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 
 export function Sidebar({ className }: { className?: string }) {
+    const { user, logout } = useAuth();
+
     return (
         <div className={cn("w-64 border-r bg-card/50 flex flex-col", className)}>
             <div className="p-4 border-b">
@@ -34,8 +36,27 @@ export function Sidebar({ className }: { className?: string }) {
                 ))}
             </div>
 
-            <div className="p-4 border-t text-xs text-center text-muted-foreground">
-                Swades AI v1.0
+            <div className="p-4 border-t space-y-3">
+                {user && (
+                    <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary text-xs font-bold">
+                            {user.name?.charAt(0).toUpperCase() || "U"}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium truncate">{user.name}</div>
+                            <div className="text-xs text-muted-foreground truncate">{user.email}</div>
+                        </div>
+                    </div>
+                )}
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full justify-start gap-2 text-muted-foreground hover:text-destructive"
+                    onClick={logout}
+                >
+                    <LogOut className="w-4 h-4" />
+                    Sign Out
+                </Button>
             </div>
         </div>
     );

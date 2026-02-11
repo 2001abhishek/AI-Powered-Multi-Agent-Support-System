@@ -14,11 +14,11 @@ export default function SignupPage() {
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
-    const { signup, loading } = useAuth();
+    const { signup, loading, error, clearError } = useAuth();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        await signup(email, name);
+        await signup(name, email, password);
     };
 
     return (
@@ -36,7 +36,12 @@ export default function SignupPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <form onSubmit={handleSubmit} className="space-y-4">
+                    {error && (
+                        <div className="mb-4 p-3 rounded-md bg-destructive/10 border border-destructive/20 text-destructive text-sm font-sans">
+                            {error}
+                        </div>
+                    )}
+                    <form onSubmit={handleSubmit} className="space-y-4" onChange={clearError}>
                         <div className="space-y-2">
                             <Label htmlFor="name">Full Name</Label>
                             <Input
