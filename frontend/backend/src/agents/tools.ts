@@ -108,6 +108,93 @@ export const checkDeliveryStatus = tool({
     },
 });
 
+export const cancelOrder = tool({
+    description: "Cancel an order by order number. Use this when users want to cancel an order. Only orders that are 'processing' can be cancelled.",
+    inputSchema: z.object({
+        orderNumber: z.string().describe("The order number to cancel, e.g., ORD-3120"),
+    }),
+    execute: async ({ orderNumber }) => {
+        const order = await db
+            .select()
+            .from(orders)
+            .where(eq(orders.orderNumber, orderNumber));
+
+        if (order.length === 0) {
+            return { success: false, message: `Order ${orderNumber} not found.` };
+        }
+
+        const o = order[0];
+
+        if (o.status === "cancelled") {
+            return { success: false, message: `Order ${orderNumber} is already cancelled.` };
+        }
+        if (o.status === "delivered") {
+            return { success: false, message: `Order ${orderNumber} has already been delivered and cannot be cancelled. Please contact support for a return.` };
+        }
+        if (o.status === "in_transit") {
+            return { success: false, message: `Order ${orderNumber} is already in transit and cannot be cancelled. Please contact support for assistance.` };
+        }
+
+        // Cancel the order
+        await db
+            .update(orders)
+            .set({ status: "cancelled", trackingNumber: null, eta: null })
+            .where(eq(orders.orderNumber, orderNumber));
+
+        return {
+            success: true,
+            message: `Order ${orderNumber} has been successfully cancelled.`,
+            order: {
+                id: o.orderNumber,
+                status: "cancelled",
+                items: o.items,
+                total: o.total,
+            },
+        };
+    },
+});
+
+export const createOrder = tool({
+    description: "Create a new order for the user. Use this when users want to place a new order with specific items.",
+    inputSchema: z.object({
+        userId: z.string().describe("The user ID placing the order"),
+        items: z.array(z.object({
+            name: z.string().describe("Item name"),
+            quantity: z.number().describe("Item quantity"),
+            price: z.string().describe("Item price, e.g. '$99.00'"),
+        })).describe("Array of items to order"),
+        total: z.string().describe("Total price of the order, e.g. '$149.00'"),
+    }),
+    execute: async ({ userId, items, total }) => {
+        // Generate unique order number
+        const orderNum = `ORD-${Math.floor(1000 + Math.random() * 9000)}`;
+
+        const [newOrder] = await db
+            .insert(orders)
+            .values({
+                userId,
+                orderNumber: orderNum,
+                status: "processing",
+                items,
+                total,
+                eta: "3-5 business days",
+            })
+            .returning();
+
+        return {
+            success: true,
+            order: {
+                id: newOrder.orderNumber,
+                status: newOrder.status,
+                items: newOrder.items,
+                total: newOrder.total,
+                eta: newOrder.eta,
+                createdAt: newOrder.createdAt.toISOString(),
+            },
+        };
+    },
+});
+
 // ══════════════════════════════════════════════════════════
 //  Billing Agent Tools
 // ══════════════════════════════════════════════════════════
